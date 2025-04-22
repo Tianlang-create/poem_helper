@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>诗词搜韵工具_白社制作</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        ink: '#333333',
+                        paper: '#F5F5F5',
+                    },
+                },
+            },
+            darkMode: 'class',
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Noto Serif SC', serif;
+        }
+        
+        .poem-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .char-input {
+            width: 100%;
+            aspect-ratio: 1;
+            text-align: center;
+            font-size: 18px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .char-input input {
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            border: none;
+            background: transparent;
+            font-size: 18px;
+            padding: 0;
+            outline: none;
+        }
+        
+        .dark .char-input {
+            border-color: #555;
+        }
+        
+        .saved-poem {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            background-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .dark .saved-poem {
+            border-color: #555;
+            background-color: rgba(40, 40, 40, 0.5);
+        }
+        
+        /* 暗黑模式样式 */
+        .dark body {
+            background-color: #181818;
+            color: #e0e0e0;
+        }
+        
+        .dark .bg-white {
+            background-color: #282828;
+        }
+        
+        .dark .bg-paper {
+            background-color: #202020;
+        }
+        
+        .dark .border-gray-200 {
+            border-color: #404040;
+        }
+        
+        .dark .text-gray-700 {
+            color: #d0d0d0;
+        }
+        
+        .dark .text-gray-600 {
+            color: #b0b0b0;
+        }
+        
+        .dark .shadow {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-paper text-ink min-h-screen">
+    <!-- 检测暗黑模式 -->
+    <script>
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+    </script>
+
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-primary mb-2">诗词搜韵(made by 天狼)</h1>
+            <p class="text-gray-600 dark:text-gray-400">寻韵构思，辅助创作</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 搜韵区域 -->
+            <div class="lg:col-span-1">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-xl font-bold mb-4 border-b pb-2 border-gray-200">汉字查韵</h2>
+                    <div class="mb-4">
+                        <label for="character-search" class="block text-gray-700 dark:text-gray-300 mb-2">输入汉字查找韵部</label>
+                        <div class="flex">
+                            <input type="text" id="character-search" class="w-full border rounded-l px-4 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary" placeholder="请输入汉字">
+                            <button id="search-btn" class="bg-primary text-white px-4 py-2 rounded-r hover:bg-opacity-90 transition">查找</button>
+                        </div>
+                    </div>
+                    <div id="search-result" class="mt-4 p-4 border border-gray-200 rounded min-h-16 hidden"></div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h2 class="text-xl font-bold mb-4 border-b pb-2 border-gray-200">韵部导航</h2>
+                    <div id="rhyme-categories" class="grid grid-cols-4 gap-2">
+                        <!-- 韵部分类按钮会在这里生成 -->
+                    </div>
+                    <div id="rhyme-chars" class="mt-4 p-4 border border-gray-200 rounded min-h-20"></div>
+                </div>
+            </div>
+
+            <!-- 创作区域 -->
+            <div class="lg:col-span-2">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-xl font-bold mb-4 border-b pb-2 border-gray-200">诗词创作</h2>
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <div class="w-full md:w-1/3">
+                            <div class="mb-4">
+                                <label class="block text-gray-700 dark:text-gray-300 mb-2">诗体选择</label>
+                                <select id="poem-type" class="w-full border rounded px-4 py-2 text-base">
+                                    <option value="五言绝句">五言绝句</option>
+                                    <option value="七言绝句">七言绝句</option>
+                                    <option value="五言律诗">五言律诗</option>
+                                    <option value="七言律诗">七言律诗</option>
+                                    <option value="自由创作">自由创作</option>
+                                </select>
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 dark:text-gray-300 mb-2">押韵选择</label>
+                                <select id="rhyme-pattern" class="w-full border rounded px-4 py-2 text-base">
+                                    <option value="一三五不论，二四押平声">一三五不论，二四押平声</option>
+                                    <option value="一三不论，二四押平声">一三不论，二四押平声</option>
+                                    <option value="自由押韵">自由押韵</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="w-full md:w-2/3">
+                            <div id="poem-container" class="bg-paper dark:bg-gray-700 rounded p-4 w-full">
+                                <!-- 诗句格子会在这里动态生成 -->
+                            </div>
+                            <div class="mt-4 flex justify-between">
+                                <button id="clear-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition">
+                                    清空
+                                </button>
+                                <button id="save-btn" class="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition">
+                                    保存诗词
+                                </button>
+                            </div>
+                            <div id="saved-poems-container" class="mt-4">
+                                <!-- 保存的诗词会显示在这里 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h2 class="text-xl font-bold mb-4 border-b pb-2 border-gray-200">格律参考</h2>
+                    <div class="overflow-y-auto max-h-60 text-gray-700 dark:text-gray-300">
+                        <h3 class="font-bold mb-2">格律基本知识</h3>
+                        <ul class="list-disc pl-5 mb-4">
+                            <li>平声：一、二声（阴平、阳平）</li>
+                            <li>仄声：三、四声（上声、去声）</li>
+                            <li>绝句：四句为一首</li>
+                            <li>律诗：八句为一首</li>
+                        </ul>
+                        <h3 class="font-bold mb-2">常见格式</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h4 class="font-semibold mb-1">五言绝句</h4>
+                                <p>每句五字，共四句</p>
+                                <p class="text-gray-600 dark:text-gray-400 text-sm">押韵：第二、四句押韵</p>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold mb-1">七言绝句</h4>
+                                <p>每句七字，共四句</p>
+                                <p class="text-gray-600 dark:text-gray-400 text-sm">押韵：第二、四句押韵</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+// 韵部数据库（扩充版）
+const rhymeData = {
+    "东": ["东", "同", "童", "铜", "桐", "峒", "筒", "瞳", "中", "衷", "忠", "终", "钟", "盅", "虫", "冲", "忡", "戎", "崇", "嵩", "空", "公", "功", "工", "攻", "蒙", "濛", "朦", "瞢", "笼", "胧", "窿", "洪", "红", "鸿", "虹", "丛", "翁", "嗡", "丰", "峰", "蜂", "烽", "风", "枫", "疯", "封", "逢", "缝", "隆", "融", "雄", "熊", "穹", "穷", "邛", "蛩", "铜", "僮", "艟", "篷", "蓬", "侬", "脓", "松", "淞", "嵩", "聪", "通", "痛", "桶", "捅", "统", "汞", "拱", "巩", "恐", "哄", "烘", "轰", "薨", "讧", "贡", "共", "供", "弄", "送", "宋", "诵", "讼", "种", "重", "众", "仲", "粽", "综", "纵", "梦", "懵", "瓮", "壅", "痈", "拥", "踊", "勇", "永", "用", "佣", "佣", "融", "容", "榕", "蓉", "溶", "熔", "庸", "墉", "镛", "慵", "鳙"],
+    "冬": ["冬", "彤", "农", "宗", "淙", "钟", "龙", "茏", "舂", "松", "淞", "冲", "容", "蓉", "庸", "封", "胸", "凶", "匈", "雍", "邕", "痈", "浓", "脓", "重", "从", "逢", "缝", "峰", "蜂", "烽", "锋", "丰", "充", "终", "宫", "中", "衷", "忠", "虫", "融", "戎", "茸", "胸", "凶", "芎", "穷", "童", "铜", "桐", "筒", "瞳", "通", "融", "雄", "熊", "功", "工", "公", "蒙", "濛", "朦", "瞢", "笼", "胧", "窿", "洪", "红", "鸿", "虹", "丛", "翁", "嗡", "钟", "龙", "舂", "松", "淞", "冲", "容", "蓉", "庸", "封", "胸", "凶", "匈", "雍", "邕", "痈", "浓", "脓", "重", "从", "逢", "缝", "峰", "蜂", "烽", "锋", "丰", "充", "终", "宫", "中", "衷", "忠", "虫", "融", "戎", "茸", "胸", "凶", "芎", "穷", "梦", "供", "崇", "嵩", "龙"],
+    "江": ["江", "缸", "窗", "邦", "降", "双", "庞", "撞", "豇", "扛", "腔", "梆", "桩", "幢", "羌", "跄", "戕", "将", "浆", "僵", "疆", "香", "乡", "骧", "相", "湘", "箱", "襄", "镶", "长", "场", "肠", "尝", "偿", "裳", "商", "伤", "汤", "唐", "塘", "搪", "堂", "棠", "糖", "螳", "房", "芳", "坊", "防", "妨", "肪", "方", "光", "芒", "忙", "茫", "邙", "盲", "亡", "望", "忘", "王", "黄", "惶", "煌", "蝗", "簧", "皇", "凰", "隍", "徨", "匡", "筐", "狂", "况", "旷", "贶", "杭", "航", "行", "吭", "桁", "杭", "降", "强", "墙", "蔷", "嫱", "樯", "桑", "丧", "嗓", "搡", "苍", "仓", "沧", "舱", "藏", "赃", "脏", "章", "樟", "彰", "漳", "獐", "璋", "张", "霜", "孀", "爽", "疮", "窗", "创", "怆", "庄", "桩", "妆", "装", "奘", "将", "浆", "僵", "疆", "香", "乡", "骧", "相", "湘", "箱", "襄", "镶"],
+    "支": ["支", "枝", "肢", "知", "蜘", "诗", "时", "师", "狮", "施", "尸", "筛", "鸤", "丝", "司", "思", "词", "祠", "辞", "慈", "磁", "兹", "滋", "淄", "资", "咨", "姿", "赀", "髭", "迟", "驰", "池", "持", "匙", "治", "笞", "蚩", "嗤", "痴", "螭", "媸", "鸱", "鸲", "璃", "离", "骊", "梨", "犁", "鹂", "黎", "缡", "篱", "罹", "厘", "狸", "黧", "耆", "麒", "骐", "琪", "琦", "期", "棋", "旗", "綦", "其", "奇", "歧", "岐", "骑", "耆", "歧", "祁", "祇", "祇", "畿", "机", "几", "讥", "玑", "肌", "矶", "鸡", "姬", "基", "箕", "稽", "笄", "羁", "跻", "嵇", "耆", "匙", "提", "堤", "低", "氐", "坻", "梯", "锑", "啼", "蹄", "醍", "题", "缔", "蒂", "弟", "递", "第", "涕", "剃", "屉", "梯", "锑", "啼", "蹄", "醍", "题", "缔", "蒂", "弟", "递", "第", "涕", "剃", "屉", "知", "丝", "之", "芝", "师", "思", "期", "持", "辞", "离", "机", "知", "丝"],
+    "齐": ["齐", "脐", "黎", "梨", "犁", "鹂", "黧", "妻", "凄", "萋", "栖", "犀", "嘶", "撕", "西", "奚", "溪", "鸡", "稽", "笄", "羁", "畿", "迷", "眯", "弥", "猕", "泥", "倪", "霓", "鲵", "宜", "仪", "沂", "圯", "圮", "圻", "夷", "姨", "贻", "痍", "移", "遗", "颐", "迤", "咦", "伊", "衣", "依", "医", "翳", "黟", "梯", "锑", "啼", "蹄", "醍", "题", "缔", "蒂", "弟", "递", "第", "涕", "剃", "屉", "低", "氐", "坻", "梯", "锑", "啼", "蹄", "醍", "题", "缔", "蒂", "弟", "递", "第", "涕", "剃", "屉", "西", "疑", "题", "提", "啼", "鸡", "梯", "低", "题", "妻", "泥", "蹄", "溪"],
+    "佳": ["佳", "街", "鞋", "崖", "涯", "柴", "豺", "钗", "差", "阶", "偕", "谐", "骸", "排", "牌", "俳", "怀", "淮", "槐", "怪", "拐", "坏", "钗", "差", "皆", "喈", "楷", "秸", "揩", "挨", "埃", "唉", "皑", "癌", "呆", "待", "怠", "殆", "垓", "赅", "该", "改", "丐", "陔", "开", "才", "材", "财", "裁", "来", "徕", "莱", "崃", "埋", "霾", "台", "抬", "苔", "鲐", "猜", "灾", "哉", "栽", "宰", "再", "在", "载", "债", "寨", "怪", "拐", "坏", "钗", "差", "皆", "喈", "楷", "秸", "揩", "挨", "埃", "唉", "皑", "癌", "呆", "待", "怠", "殆", "垓", "赅", "该", "改", "丐", "陔", "开", "才", "材", "财", "裁", "来", "徕", "莱", "崃", "埋", "霾", "台", "抬", "苔", "鲐", "猜", "灾", "哉", "栽", "宰", "再", "在", "载", "债", "寨"],
+    "灰": ["灰", "恢", "魁", "盔", "回", "徊", "槐", "蛔", "梅", "媒", "枚", "玫", "霉", "雷", "罍", "擂", "累", "羸", "儡", "檑", "催", "摧", "衰", "崔", "催", "推", "堆", "颓", "雷", "罍", "擂", "累", "羸", "儡", "檑", "杯", "悲", "碑", "卑", "陂", "北", "辈", "背", "贝", "狈", "备", "惫", "悖", "焙", "陪", "赔", "裴", "沛", "旆", "配", "佩", "妹", "昧", "寐", "魅", "溃", "馈", "聩", "愧", "对", "兑", "队", "内", "馁", "每", "浼", "海", "醢", "亥", "害", "亥", "骇", "慨", "恺", "凯", "铠", "代", "岱", "贷", "袋", "逮", "戴", "待", "怠", "殆", "垓", "赅", "该", "改", "丐", "陔", "开", "才", "材", "财", "裁", "来", "徕", "莱", "崃", "埋", "霾", "台", "抬", "苔", "鲐", "猜", "灾", "哉", "栽", "宰", "再", "在", "载", "债", "寨"],
+    "真": ["真", "珍", "贞", "针", "侦", "臣", "尘", "辰", "晨", "宸", "陈", "春", "椿", "醇", "纯", "唇", "伦", "轮", "抡", "沦", "论", "邻", "麟", "鳞", "嶙", "磷", "辚", "吝", "蔺", "躏", "民", "泯", "岷", "旻", "敏", "闽", "斤", "筋", "巾", "津", "襟", "今", "金", "禁", "紧", "锦", "琴", "禽", "擒", "勤", "芹", "秦", "螓", "辛", "新", "薪", "心", "信", "申", "伸", "绅", "呻", "神", "身", "深", "审", "婶", "肾", "慎", "仁", "人", "忍", "认", "刃", "韧", "银", "寅", "吟", "淫", "垠", "龈", "殷", "因", "姻", "阴", "音", "荫", "饮", "隐", "引", "印", "巾", "斤", "筋", "巾", "津", "襟", "今", "金", "禁", "紧", "锦", "琴", "禽", "擒", "勤", "芹", "秦", "螓", "辛", "新", "薪", "心", "信", "申", "伸", "绅", "呻", "神", "身", "深", "审", "婶", "肾", "慎"],
+    "文": ["文", "纹", "蚊", "云", "耘", "氲", "员", "圆", "园", "元", "原", "源", "缘", "袁", "猿", "垣", "烦", "繁", "蕃", "樊", "矾", "藩", "翻", "幡", "分", "芬", "纷", "氛", "坟", "焚", "汾", "粉", "奋", "愤", "粪", "忿", "奔", "本", "笨", "盆", "门", "闷", "扪", "们", "存", "村", "蹲", "敦", "墩", "吨", "囤", "钝", "盾", "遁", "豚", "臀", "君", "军", "均", "钧", "菌", "骏", "峻", "俊", "竣", "郡", "裙", "群", "熏", "勋", "熏", "训", "讯", "迅", "巽", "舜", "顺", "润", "闰", "润", "蕴", "韵", "运", "晕", "酝", "愠", "闻", "云", "分", "群", "君", "军", "申", "勋", "纷", "坟", "论", "存", "焚"],
+    "阳": ["阳", "杨", "扬", "羊", "洋", "疡", "徉", "佯", "芳", "坊", "防", "妨", "肪", "方", "房", "旁", "滂", "磅", "螃", "忙", "茫", "邙", "盲", "亡", "望", "忘", "王", "黄", "惶", "煌", "蝗", "簧", "皇", "凰", "隍", "徨", "匡", "筐", "狂", "况", "旷", "贶", "杭", "航", "行", "吭", "桁", "强", "墙", "蔷", "嫱", "樯", "桑", "丧", "嗓", "搡", "苍", "仓", "沧", "舱", "藏", "赃", "脏", "章", "樟", "彰", "漳", "獐", "璋", "张", "长", "常", "尝", "偿", "裳", "商", "伤", "汤", "唐", "塘", "搪", "堂", "棠", "糖", "螳", "凉", "良", "量", "粮", "梁", "粱", "亮", "谅", "辆", "两", "养", "痒", "样", "象", "像", "相", "湘", "箱", "襄", "镶", "香", "乡", "骧", "光", "长", "方", "常", "场", "章", "张", "香", "凉", "良", "量", "藏", "央"],
+    "庚": ["庚", "更", "羹", "耕", "赓", "盲", "氓", "萌", "盟", "明", "鸣", "冥", "溟", "铭", "名", "平", "评", "坪", "苹", "萍", "枰", "屏", "瓶", "罂", "莺", "嘤", "婴", "缨", "璎", "樱", "罂", "膺", "鹰", "应", "英", "瑛", "影", "郢", "颍", "迎", "盈", "莹", "萦", "楹", "赢", "嬴", "营", "蝇", "凝", "陵", "凌", "菱", "绫", "玲", "铃", "苓", "零", "龄", "伶", "灵", "领", "岭", "令", "另", "净", "径", "竟", "敬", "镜", "劲", "径", "经", "茎", "荆", "菁", "晶", "睛", "精", "鲸", "京", "惊", "旌", "擎", "晴", "情", "清", "青", "轻", "倾", "卿", "声", "生", "升", "胜", "笙", "牲", "甥", "绳", "乘", "盛", "城", "成", "诚", "呈", "程", "惩", "征", "争", "峥", "铮", "狰", "正", "政", "证", "郑", "症", "整", "拯", "省", "醒", "幸", "杏", "姓", "性", "行", "称", "生", "成", "声", "平", "清", "情", "明", "名", "城", "京"],
+    "尤": ["尤", "优", "悠", "忧", "由", "游", "油", "邮", "留", "流", "榴", "刘", "瘤", "琉", "硫", "旒", "娄", "楼", "喽", "蝼", "髅", "兜", "都", "篼", "头", "投", "偷", "钩", "沟", "钩", "篝", "鞲", "侯", "喉", "猴", "瘊", "讴", "欧", "瓯", "鸥", "丘", "邱", "秋", "蚯", "鳅", "囚", "牛", "仇", "愁", "稠", "筹", "酬", "踌", "柔", "揉", "鞣", "叟", "薮", "嗖", "搜", "馊", "艘", "飕", "休", "修", "羞", "朽", "宿", "秀", "绣", "袖", "寿", "受", "授", "兽", "守", "首", "手", "酒", "久", "九", "韭", "灸", "旧", "舅", "臼", "就", "鹫", "构", "购", "够", "垢", "蔻", "扣", "叩", "呕", "偶", "藕", "后", "厚", "候", "逅", "猴", "瘊", "讴", "欧", "瓯", "鸥", "丘", "邱", "秋", "蚯", "鳅", "囚", "牛", "仇", "愁", "稠", "筹", "酬", "踌", "柔", "揉", "鞣", "叟", "薮", "嗖", "搜", "馊", "艘", "飕", "休", "修", "羞", "朽", "宿", "秀", "绣", "袖", "寿", "受", "授", "兽", "守", "首", "手", "酒", "久", "九", "韭", "灸", "旧", "舅", "臼", "就", "鹫", "构", "购", "够", "垢", "蔻", "扣", "叩", "呕", "偶", "藕", "后", "厚", "候", "逅"],
+    "侵": ["侵", "心", "琴", "禽", "擒", "衾", "吟", "音", "阴", "喑", "愔", "歆", "钦", "衾", "骎", "寻", "浔", "林", "临", "霖", "淋", "琳", "琛", "忱", "沉", "沈", "深", "参", "渗", "壬", "任", "妊", "荏", "稔", "甚", "枕", "朕", "朕", "鸩", "审", "婶", "肾", "慎", "针", "斟", "箴", "斟", "砧", "岑", "涔", "森", "覃", "潭", "谈", "痰", "昙", "篮", "蓝", "岚", "柑", "甘", "龛", "堪", "惭", "含", "函", "涵", "邯", "酣", "庵", "谙", "鹌", "暗", "探", "胆", "澹", "啖", "淡", "缆", "览", "榄", "滥", "暂", "三", "衫", "杉", "帆", "凡", "泛", "梵", "范", "耽", "耽", "眈", "聃", "担", "儋", "聃", "眈", "耽", "担", "儋", "南", "男", "楠", "喃", "岚", "庵", "暗", "探"],
+    "覃": ["覃", "潭", "谈", "痰", "昙", "篮", "蓝", "岚", "柑", "甘", "龛", "堪", "惭", "含", "函", "涵", "邯", "酣", "庵", "谙", "鹌", "暗", "探", "胆", "澹", "啖", "淡", "缆", "览", "榄", "滥", "暂", "三", "衫", "杉", "帆", "凡", "泛", "梵", "范", "耽", "耽", "眈", "聃", "担", "儋", "聃", "眈", "耽", "担", "儋", "南", "男", "楠", "喃", "岚", "庵", "暗", "探", "蚕", "惭", "谗", "搀", "蟾", "簪", "攒", "惭", "谗", "搀", "蟾", "簪", "攒", "甘", "柑", "泔", "邯", "酣", "憨", "含", "函", "涵", "岚", "婪", "褴", "篮", "蓝", "柑", "甘", "龛", "堪", "惭", "含", "函", "涵", "邯", "酣", "庵", "谙", "鹌", "暗", "探", "胆", "澹", "啖", "淡", "缆", "览", "榄", "滥", "暂", "三", "衫", "杉", "帆", "凡", "泛", "梵", "范", "耽", "耽", "眈", "聃", "担", "儋", "聃", "眈", "耽", "担", "儋", "南", "男", "楠", "喃", "岚", "庵", "暗", "探"]
+};    
+        // DOM 元素
+        const characterSearchInput = document.getElementById('character-search');
+        const searchBtn = document.getElementById('search-btn');
+        const searchResult = document.getElementById('search-result');
+        const rhymeCategories = document.getElementById('rhyme-categories');
+        const rhymeChars = document.getElementById('rhyme-chars');
+        const poemText = document.getElementById('poem-text');
+
+        // 初始化韵部分类按钮
+        function initRhymeCategories() {
+            for (const rhyme in rhymeData) {
+                const button = document.createElement('button');
+                button.textContent = rhyme;
+                button.className = 'py-1 px-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-primary hover:text-white transition';
+                button.addEventListener('click', () => {
+                    displayRhymeChars(rhyme);
+                });
+                rhymeCategories.appendChild(button);
+            }
+        }
+
+        // 显示特定韵部的字符
+        function displayRhymeChars(rhyme) {
+            rhymeChars.innerHTML = '';
+            rhymeChars.classList.remove('hidden');
+            
+            const title = document.createElement('h3');
+            title.textContent = `${rhyme}韵`;
+            title.className = 'font-bold mb-2';
+            rhymeChars.appendChild(title);
+            
+            const charContainer = document.createElement('div');
+            charContainer.className = 'flex flex-wrap gap-2';
+            
+            rhymeData[rhyme].forEach(char => {
+                const charSpan = document.createElement('span');
+                charSpan.textContent = char;
+                charSpan.className = 'py-1 px-2 border border-gray-300 dark:border-gray-600 rounded cursor-pointer hover:bg-primary hover:text-white transition';
+                charSpan.addEventListener('click', () => {
+                    insertCharToPoemText(char);
+                });
+                charContainer.appendChild(charSpan);
+            });
+            
+            rhymeChars.appendChild(charContainer);
+        }
+
+        // 将字符插入到诗词创作区
+        function insertCharToPoemText(char) {
+            // 查找当前获得焦点的输入框
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement.tagName === 'INPUT' && activeElement.parentElement.classList.contains('char-input')) {
+                activeElement.value = char;
+                
+                // 尝试移动到下一个输入框
+                const allInputs = Array.from(document.querySelectorAll('.char-input input'));
+                const currentIndex = allInputs.indexOf(activeElement);
+                if (currentIndex !== -1 && currentIndex < allInputs.length - 1) {
+                    allInputs[currentIndex + 1].focus();
+                }
+            }
+        }
+
+        // 查找字符的韵部
+        function findRhymeForChar(char) {
+            searchResult.innerHTML = '';
+            searchResult.classList.remove('hidden');
+            
+            let foundRhymes = [];
+            
+            for (const rhyme in rhymeData) {
+                if (rhymeData[rhyme].includes(char)) {
+                    foundRhymes.push(rhyme);
+                }
+            }
+            
+            if (foundRhymes.length > 0) {
+                const resultHTML = `
+                    <p class="mb-2">「${char}」所属韵部：</p>
+                    <div class="flex flex-wrap gap-2">
+                        ${foundRhymes.map(r => `<span class="py-1 px-2 bg-primary text-white rounded">${r}韵</span>`).join('')}
+                    </div>
+                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">同韵字可在右侧对应韵部查看</p>
+                `;
+                searchResult.innerHTML = resultHTML;
+            } else {
+                searchResult.innerHTML = `<p>未找到「${char}」的韵部信息，请尝试其他汉字。</p>`;
+            }
+        }
+
+        // 事件监听
+        searchBtn.addEventListener('click', () => {
+            const char = characterSearchInput.value.trim();
+            if (char && char.length === 1) {
+                findRhymeForChar(char);
+            } else {
+                searchResult.innerHTML = '<p class="text-red-500">请输入单个汉字</p>';
+                searchResult.classList.remove('hidden');
+            }
+        });
+
+        characterSearchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchBtn.click();
+            }
+        });
+
+        // 诗词创作部分
+        const poemContainer = document.getElementById('poem-container');
+        const poemType = document.getElementById('poem-type');
+        const clearBtn = document.getElementById('clear-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const savedPoemsContainer = document.getElementById('saved-poems-container');
+        
+        // 根据诗体类型创建格子
+        function createPoemGrid() {
+            poemContainer.innerHTML = '';
+            
+            let lines = 4; // 默认为绝句（四行）
+            let charsPerLine = 5; // 默认为五言
+            
+            const poemTypeVal = poemType.value;
+            
+            if (poemTypeVal.includes('律诗')) {
+                lines = 8; // 律诗有八行
+            }
+            
+            if (poemTypeVal.includes('七言')) {
+                charsPerLine = 7; // 七言
+            }
+            
+            for (let i = 0; i < lines; i++) {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'poem-grid';
+                lineDiv.style.gridTemplateColumns = `repeat(${charsPerLine}, 1fr)`;
+                
+                // 添加行号
+                const lineNumber = document.createElement('div');
+                lineNumber.className = 'flex items-center justify-center text-gray-500 dark:text-gray-400 mr-2';
+                lineNumber.textContent = i + 1;
+                lineDiv.appendChild(lineNumber);
+                
+                for (let j = 0; j < charsPerLine; j++) {
+                    const charDiv = document.createElement('div');
+                    charDiv.className = 'char-input';
+                    
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.maxLength = 1;
+                    input.setAttribute('data-line', i);
+                    input.setAttribute('data-position', j);
+                    
+                    // 添加键盘导航
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || 
+                            e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                            navigateInputs(e, input, lines, charsPerLine);
+                        }
+                    });
+                    
+                    // 自动跳转到下一个输入框
+                    input.addEventListener('input', (e) => {
+                        if (e.target.value.length === 1) {
+                            const allInputs = Array.from(document.querySelectorAll('.char-input input'));
+                            const currentIndex = allInputs.indexOf(e.target);
+                            if (currentIndex !== -1 && currentIndex < allInputs.length - 1) {
+                                allInputs[currentIndex + 1].focus();
+                            }
+                        }
+                    });
+                    
+                    charDiv.appendChild(input);
+                    lineDiv.appendChild(charDiv);
+                }
+                
+                poemContainer.appendChild(lineDiv);
+            }
+            
+            // 默认选中第一个输入框
+            const firstInput = document.querySelector('.char-input input');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }
+        
+        // 键盘导航
+        function navigateInputs(event, currentInput, totalLines, charsPerLine) {
+            event.preventDefault();
+            
+            const currentLine = parseInt(currentInput.getAttribute('data-line'));
+            const currentPos = parseInt(currentInput.getAttribute('data-position'));
+            
+            let nextLine = currentLine;
+            let nextPos = currentPos;
+            
+            switch (event.key) {
+                case 'ArrowRight':
+                    nextPos = currentPos + 1;
+                    if (nextPos >= charsPerLine) {
+                        nextPos = 0;
+                        nextLine = (currentLine + 1) % totalLines;
+                    }
+                    break;
+                case 'ArrowLeft':
+                    nextPos = currentPos - 1;
+                    if (nextPos < 0) {
+                        nextPos = charsPerLine - 1;
+                        nextLine = (currentLine - 1 + totalLines) % totalLines;
+                    }
+                    break;
+                case 'ArrowDown':
+                    nextLine = (currentLine + 1) % totalLines;
+                    break;
+                case 'ArrowUp':
+                    nextLine = (currentLine - 1 + totalLines) % totalLines;
+                    break;
+            }
+            
+            const nextInput = document.querySelector(`.char-input input[data-line="${nextLine}"][data-position="${nextPos}"]`);
+            if (nextInput) {
+                nextInput.focus();
+            }
+        }
+        
+        // 清空诗词内容
+        clearBtn.addEventListener('click', () => {
+            const allInputs = document.querySelectorAll('.char-input input');
+            allInputs.forEach(input => {
+                input.value = '';
+            });
+            
+            // 默认选中第一个输入框
+            const firstInput = document.querySelector('.char-input input');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        });
+        
+        // 保存诗词
+        saveBtn.addEventListener('click', () => {
+            const lines = [];
+            const grids = poemContainer.querySelectorAll('.poem-grid');
+            
+            grids.forEach(grid => {
+                const inputs = grid.querySelectorAll('input');
+                let line = '';
+                inputs.forEach(input => {
+                    line += input.value || '　'; // 使用全角空格代替空字符
+                });
+                lines.push(line);
+            });
+            
+            if (lines.join('').trim() === '') {
+                alert('请先创作诗词内容再保存！');
+                return;
+            }
+            
+            const poemTitle = prompt('请为您的诗词命名：', '无题');
+            if (poemTitle === null) return; // 用户取消
+            
+            const timestamp = new Date().toLocaleString('zh-CN');
+            
+            const poemDiv = document.createElement('div');
+            poemDiv.className = 'saved-poem';
+            
+            // 添加诗词内容
+            let poemHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold text-lg">${poemTitle || '无题'}</h3>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">${timestamp}</span>
+                </div>
+                <div class="poem-content mb-3">
+            `;
+            
+            lines.forEach(line => {
+                if (line.trim()) {
+                    poemHTML += `<p class="mb-1">${line}</p>`;
+                }
+            });
+            
+            poemHTML += `
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button class="copy-btn px-3 py-1 bg-primary text-white text-sm rounded hover:bg-opacity-90 transition">复制</button>
+                    <button class="delete-btn px-3 py-1 bg-gray-200 dark:bg-gray-600 text-sm rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition">删除</button>
+                </div>
+            `;
+            
+            poemDiv.innerHTML = poemHTML;
+            
+            // 添加复制和删除功能
+            poemDiv.querySelector('.copy-btn').addEventListener('click', () => {
+                const poemText = lines.join('\n');
+                navigator.clipboard.writeText(poemText).then(() => {
+                    alert('诗词已复制到剪贴板！');
+                }).catch(err => {
+                    console.error('复制失败：', err);
+                    alert('复制失败，请手动选择文本并复制。');
+                });
+            });
+            
+            poemDiv.querySelector('.delete-btn').addEventListener('click', () => {
+                if (confirm('确定要删除这首诗吗？')) {
+                    poemDiv.remove();
+                }
+            });
+            
+            // 添加到保存区域
+            savedPoemsContainer.prepend(poemDiv);
+        });
+        
+        // 当诗体类型变化时重新生成格子
+        poemType.addEventListener('change', createPoemGrid);
+        
+        // 初始化页面
+        initRhymeCategories();
+        displayRhymeChars('东');
+        createPoemGrid(); // 初始化诗词格子
+    </script>
+</body>
+</html>
